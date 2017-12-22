@@ -9,8 +9,8 @@
 
 function myI01onlineTubes()
 close all
-data_root = '/home/zhujiagang/realtime-action-detection';
-save_root = '/home/zhujiagang/realtime-action-detection/save';
+data_root = '/mnt/disk2/ICCV2017/realtime_action_detection';
+save_root = '/mnt/disk2/ICCV2017/realtime_action_detection';
 iteration_num_rgb = [120000]; % you can also evaluate on multiple iertations
 iteration_num_flow = [120000]; % you can also evaluate on multiple iertations
 

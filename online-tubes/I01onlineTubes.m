@@ -9,8 +9,8 @@
 
 function I01onlineTubes()
 
-data_root = '/mnt/mars-fast/datasets';
-save_root = '/mnt/mars-gamma/ssd-work';
+data_root = '/mnt/disk2/ICCV2017/realtime_action_detection';
+save_root = '/mnt/disk2/ICCV2017/realtime_action_detection';
 iteration_num_rgb = [120000]; % you can also evaluate on multiple iertations
 iteration_num_flow = [120000]; % you can also evaluate on multiple iertations
 

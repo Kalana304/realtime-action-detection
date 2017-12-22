@@ -56,6 +56,7 @@ for  t = 1:num_frames
                 
                 scores = sort(live_paths(lp).scores,'ascend');
                 num_sc = length(scores);
+                scratch = scores(max(1,num_sc-jumpgap):num_sc);
                 path_order_score(lp) = mean(scores(max(1,num_sc-jumpgap):num_sc));
                 
             else
