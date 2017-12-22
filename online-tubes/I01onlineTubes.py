@@ -40,7 +40,8 @@ def initDatasetOpts(data_root, baseDir, dataset, imgType, model_type, listid, it
     opts['detDir'] = os.path.join(baseDir, dataset, 'detections',
                                   model_type + '-' + imgType + '-' + listid + '-' + '{iter:06}'.format(
                                       iter=iteration_num))
-    opts['annotFile'] = os.path.join(data_root, dataset, 'splitfiles', 'finalAnnots.txt')
+    # Downloaded from https://github.com/gurkirt/corrected-UCF101-Annots
+    opts['annotFile'] = os.path.join(data_root, dataset, 'splitfiles', 'pyannot.pkl')
     opts['actPathDir'] = os.path.join(baseDir, dataset, 'actionPaths',
                                       '{}-{}-{}-{:06d}-{}-{:d}-{:04d}'.format(model_type, imgType, listid,
                                                                               iteration_num, costtype, gap,
@@ -104,7 +105,71 @@ def I01onlineTubes():
                         opts['tubeDir']))
             # Build action paths given frame level detections
             actionPaths(opts)
+            # Perform temproal labelling and evaluate; results saved in results cell
+            result_cell = gettubes(opts)
 
+
+def gettubes(dopts):
+    '''
+    Facade function for smoothing tubes and evaluating them
+    :param dopts:
+    :return:
+    '''
+
+    numActions = len(dopts['actions'])
+    results = np.zeros((300,6))
+    counter=0
+    class_aps = np.empty((2,1))
+    # save file name to save result for eah option type
+    saveName = os.path.join('{}'.format(dopts['tubeDir']),'tubes-results.txt')
+    if not os.path.exists(saveName):
+        with open(dopts['annotFile'], 'rb') as annot_file:
+            annot = pickle.load(annot_file)
+            testvideos = getVideoNames(dopts['vidList'])
+            '''
+            for  alpha = 3 
+                fprintf('alpha %03d ',alpha);
+                tubesSaveName = sprintf('%stubes-alpha%04d.mat',dopts.tubeDir,uint16(alpha*100));
+                if ~exist(tubesSaveName,'file')
+            '''
+            alpha=3
+            print("alpha {:03d}".format(alpha))
+            tubesSaveName = os.path.join(dopts['tubeDir'], "tubes-alpha{:04d}.pkl".format(100*alpha))
+            if not os.path.exists(tubesSaveName):
+                # read action paths
+                actionpaths = readALLactionPaths(dopts['vidList'],dopts['actPathDir'],1)
+                # perform temporal trimming
+
+        import pdb; pdb.set_trace()
+    return results
+
+
+def readALLactionPaths(videolist,actionPathDir,step):
+    '''
+
+    :param videolist:
+    :param actionPathDir:
+    :param step:
+    :return:
+    '''
+    videos = getVideoNames(videolist)
+    NumVideos = len(videos)
+    count=0
+    actionpath = []
+    for vid in range(0, NumVideos, step):
+        videoID = videos[vid]
+        pathsSaveName = os.path.join(actionPathDir,'{}-actionPaths.pkl'.format(videoID))
+        try:
+            with open(pathsSaveName, "rb") as file:
+                allpaths = pickle.load(file)
+        except IOError as e:
+            print('Action path does not exist please generate action path {}'.format(pathsSaveName))
+        #TODO Path counts per video_id currently don't match matlab version
+        action_element = {'video_id': videoID, 'paths': allpaths}
+        actionpath.append(action_element)
+        count+=1
+    import pdb; pdb.set_trace()
+    return actionpath
 
 def actionPaths(dopts):
     detresultpath = dopts['detDir']
@@ -139,7 +204,8 @@ def actionPaths(dopts):
             print("Results saved in ::: {} for {:d} classes".format(pathsSaveName, len(allpaths)))
             with open(pathsSaveName, 'wb') as f:
                 pickle.dump(allpaths, f)
-    import pdb; pdb.set_trace()
+    print("Done computing action paths.")
+    return None
 
 def genActionPaths(frames, action_index, nms_thresh, iouth, costtype, gap):
     '''
