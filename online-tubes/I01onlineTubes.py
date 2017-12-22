@@ -1,4 +1,5 @@
 import os
+import pickle
 import torch
 import _init_path
 
@@ -118,7 +119,7 @@ def actionPaths(dopts):
     videos = getVideoNames(videolist)
     NumVideos = len(videos)
     for i_vid, videoID in enumerate(videos):
-        pathsSaveName = os.path.join(saveName, "{}-actionPaths.txt".format(videoID))
+        pathsSaveName = os.path.join(saveName, "{}-actionPaths.pkl".format(videoID))
         videoDetDir = os.path.join(detresultpath, videoID)
         if not os.path.exists(pathsSaveName):
 
@@ -135,7 +136,10 @@ def actionPaths(dopts):
             allpaths = []
             for i_act in range(0, numActions):
                 allpaths.append(genActionPaths(frames, i_act, nms_thresh, iouth, costtype, gap))
-
+            print("Results saved in ::: {} for {:d} classes".format(pathsSaveName, len(allpaths)))
+            with open(pathsSaveName, 'wb') as f:
+                pickle.dump(allpaths, f)
+    import pdb; pdb.set_trace()
 
 def genActionPaths(frames, action_index, nms_thresh, iouth, costtype, gap):
     '''
@@ -246,9 +250,9 @@ def incremental_linking(frames, iouth, costtype, jumpgap, threshgap):
                         live_paths[lp_count]['count'] = 1  # current box count for bth box tube
                         live_paths[lp_count]['lastfound'] = 0  # last frame box was found
                         lp_count += 1
-        print(t)
-        for i in range(len(live_paths)): print(live_paths[i]['pathScore'])
-        for i in range(len(live_paths)): print(live_paths[i]['scores'])
+        #print(t)
+        #for i in range(len(live_paths)): print(live_paths[i]['pathScore'])
+        #for i in range(len(live_paths)): print(live_paths[i]['scores'])
 
     live_paths = fill_gaps(live_paths, threshgap)
     dead_paths = fill_gaps(dead_paths, threshgap)
@@ -274,7 +278,7 @@ def incremental_linking(frames, iouth, costtype, jumpgap, threshgap):
 
 def fill_gaps(paths, gap):
     gap_filled_paths = []
-    if 'boxes' in paths[0]:
+    if len(paths)>0 and 'boxes' in paths[0]:
         g_count = 0
         for lp in range(getPathCount(paths)):
             if len(paths[lp]['foundAt']) > gap:
@@ -377,7 +381,7 @@ def score_of_edge(v1, v2, iouth, costtype):
 
 
 def getPathCount(live_paths):
-    if 'boxes' in live_paths[0]:
+    if len(live_paths)>0 and 'boxes' in live_paths[0]:
         lp_count = len(live_paths)
     else:
         lp_count = 0
@@ -401,6 +405,8 @@ def dofilter(frames, action_index, frame_index, nms_thresh):
     allscores = allscores[pick, :]
     # Perform nms on picked boxes
     dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32)
+    if len(boxes)==0 or len(scores) == 0 or len(allscores)==0:
+        return boxes, scores, allscores
     pick, counts = nms(torch.from_numpy(boxes), torch.from_numpy(scores), nms_thresh)  # idsn - ids after nms
     pick = pick[:counts]
     #pick = nms(dets, nms_thresh)
