@@ -41,8 +41,8 @@ for vid=1:NumVideos
         
         %% parllel loop over all action class and genrate paths for each class
         allpaths = cell(1);
-        %parfor a=1:numActions
-        for a=1:numActions
+        parfor a=1:numActions
+        %for a=1:numActions
             allpaths{a} = genActionPaths(frames, a, nms_thresh, iouth, costtype,gap);
         end
         

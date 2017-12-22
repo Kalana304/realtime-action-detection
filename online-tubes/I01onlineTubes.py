@@ -139,10 +139,87 @@ def gettubes(dopts):
                 # read action paths
                 actionpaths = readALLactionPaths(dopts['vidList'],dopts['actPathDir'],1)
                 # perform temporal trimming
+                smoothedtubes = parActionPathSmoother(actionpaths,alpha*np.ones((numActions,1)),numActions)
 
         import pdb; pdb.set_trace()
     return results
 
+
+def parActionPathSmoother(actionpaths,alpha,num_action):
+    alltubes = []
+
+    # TODO parallize across actionpaths
+    for t in range(len(actionpaths)):
+        video_id = actionpaths[t]['video_id']
+        alltubes.append(actionPathSmoother4oneVideo(actionpaths[t]['paths'],alpha,num_action,video_id))
+    import pdb; pdb.set_trace()
+    return final_tubes
+
+
+def actionPathSmoother4oneVideo(video_paths,alpha,num_action,video_id):
+    action_count = 0
+    if len(video_paths)>0:
+        for a in range(num_action):
+            action_paths = video_paths[a]
+            num_act_paths = getPathCount(action_paths)
+            for p in range(num_act_paths):
+                M = action_paths[p]['allScores'][:,:num_action]
+                M = M.T
+                M+=20.0
+                pred_path,time,D = dpEM_max(M,alpha[a])
+    import pdb; pdb.set_trace()
+    return final_tubes
+
+def dpEM_max(M, alpha):
+    r,c = M.shape
+    # costs
+    D = np.zeros((r, c+1)) # add an extra column
+    D[:,0] = 0 # put the maximum cost
+    D[:, 1:(c+1)] = M
+    phi = np.zeros((r,c))
+    # Note:
+    # the outer loop (j) is to visit one by one each frames
+    # the inner loop (i) is to get the max score for each action label
+    # the -alpha*(v~=i) term is to add a penalty by subtracting alpha from the
+    # data term for all other class labels other than i, for ith class label
+    # it adds zero penalty;
+    #  (v~=i) will return a logical array consists of 10 elements, in the ith
+    # location it is 0 (false becuase the condition v~=i is false) and all other locations
+    # returns 1, thus for ith calss it multiplies 0
+    # with alpha and for the rest of the classes multiplies 1;
+    # for each iteration of ith loop we get a max value which we add to the
+    # data term d(i,j), in this way the 10 max values for 10 different action
+    # labels are stored to the jth column (or for the jth frame): D(0,j), D(1,j),...,D(9,j),
+    for j in range(1, c):#frames
+        for i in range(r): #action labels
+            v1 = np.ones(r)*alpha
+            v1[i]=0
+            values = D[:, j-1]-v1
+            tb = np.argmax(values)
+            dmax = np.max(values)
+            D[i,j] = D[i,j]+dmax
+            phi[i,j] = tb
+
+    # best of the last column
+    q = c-1 # frame inidces
+    values = D[:, c-1]
+    p = np.argmax(values)
+
+    i = p # index of max element in last column of D,
+    j = q # frame indices
+    ps = np.zeros(c)
+    ps[q]=p
+    while j>0: # loop over frames in a video
+        tb = phi[i,j] # i -> index of max element in last column of D, j-> last frame index or last column of D
+        j = int(j-1)
+        q=j
+        ps[q]=tb
+        i=int(tb)
+    D = D[:,1:]
+
+    import pdb; pdb.set_trace()
+
+    return p,q,D
 
 def readALLactionPaths(videolist,actionPathDir,step):
     '''
@@ -168,7 +245,6 @@ def readALLactionPaths(videolist,actionPathDir,step):
         action_element = {'video_id': videoID, 'paths': allpaths}
         actionpath.append(action_element)
         count+=1
-    import pdb; pdb.set_trace()
     return actionpath
 
 def actionPaths(dopts):
