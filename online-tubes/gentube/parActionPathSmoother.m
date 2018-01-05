@@ -20,8 +20,8 @@ final_tubes = struct('starts',[],'ts',[],'te',[],'label',[],'path_total_score',[
 
 alltubes  = cell(length(actionpaths),1);
 
-%parfor t = 1 : length(actionpaths)
-for t = 1 : length(actionpaths)
+parfor t = 1 : length(actionpaths)
+%for t = 1 : length(actionpaths)
     %     fprintf('[%03d/%03d] calpha %04d\n',t,length(tubes),uint16(calpha*100));
     %     fprintf('.');
     video_id = actionpaths(t).video_id;
@@ -104,8 +104,8 @@ if isempty(indexs)
     ts = []; te = []; scores = []; label = []; total_score = [];
     
 else
-    A = [indexs,indexs(end)+1]
-    B = [indexs(1)-2,indexs]
+    %A = [indexs,indexs(end)+1]
+    %B = [indexs(1)-2,indexs]
     indexs_diff = [indexs,indexs(end)+1] - [indexs(1)-2,indexs];
     ts = find(indexs_diff>1);
     

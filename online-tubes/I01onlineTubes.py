@@ -140,10 +140,65 @@ def gettubes(dopts):
                 actionpaths = readALLactionPaths(dopts['vidList'],dopts['actPathDir'],1)
                 # perform temporal trimming
                 smoothedtubes = parActionPathSmoother(actionpaths,alpha*np.ones((numActions,1)),numActions)
+                # pickle the tubes
+                with open(tubesSaveName, "wb") as write_file:
+                    pickle.dump(smoothedtubes, write_file)
+            else:
+                with open(tubesSaveName, "rb") as read_file:
+                    smoothedtubes = pickle.load(read_file)
 
-        import pdb; pdb.set_trace()
+            min_num_frames = 8
+            kthresh = 0.0
+            topk = 40
+            xmldata = convert2eval(smoothedtubes, min_num_frames,
+                                   kthresh*np.ones((numActions,1)), topk, np.array(testvideos))
+            import pdb; pdb.set_trace()
     return results
 
+
+def convert2eval(final_tubes,min_num_frames,kthresh,topk,vids):
+    xmld = {'videoName': [], 'score': [], 'nr': [], 'class': [], 'framenr': [], 'boxes': []}
+    for v in range(len(vids)):
+        action_indexes = np.where(np.array(final_tubes['video_id'])==vids[v])
+        videoName = vids[v]
+        xmld['videoName'].append(videoName)
+        actionscore = np.array(final_tubes['dpActionScore'])[action_indexes]
+        path_scores = np.array(final_tubes['path_scores'])[action_indexes]
+
+        ts = np.array(final_tubes['ts'])[action_indexes]
+        starts = np.array(final_tubes['starts'])[action_indexes]
+        te = np.array(final_tubes['te'])[action_indexes]
+        act_nr = 0
+        scores = []
+        nr = []
+        class_list = []
+        frame_nr = {'fnr': []}
+        boxes = {'bxs': []}
+        for a in range(len(ts)):
+            act_ts = ts[a]
+            act_te = te[a]
+            act_path_scores = np.array(path_scores[a])
+            act_scores = np.sort(act_path_scores[act_ts:act_te])[::-1]
+            topk_mean = np.mean(act_scores[0:min(topk,len(act_scores))])
+            bxs = np.array(final_tubes['path_boxes'])[action_indexes[0][a]][act_ts:act_te]
+            bxs = np.array(bxs)
+            bxs = np.hstack((bxs[:,:2], bxs[:,2:4]-bxs[:,0:2]))
+            label = final_tubes['label'][action_indexes[0][a]]
+            if (topk_mean > kthresh[int(label)]) and ( (act_te-act_ts) > min_num_frames):
+                scores.append(topk_mean)
+                nr.append(act_nr)
+                class_list.append(label)
+                start_end_array = np.array([i for i in range(act_ts, act_te)]) + starts[a]
+                frame_nr['fnr'].append(start_end_array)
+                boxes['bxs'].append(bxs)
+                act_nr += 1
+        xmld['score'].append(scores)
+        xmld['nr'].append(nr)
+        xmld['class'].append(class_list)
+        xmld['framenr'].append(frame_nr)
+        xmld['boxes'].append(boxes)
+
+    return xmld
 
 def parActionPathSmoother(actionpaths,alpha,num_action):
     alltubes = []
@@ -167,7 +222,6 @@ def parActionPathSmoother(actionpaths,alpha,num_action):
             final_tubes['path_total_score'].append(vid_tubes['path_total_score'][k])
             final_tubes['path_boxes'].append(vid_tubes['path_boxes'][k])
             final_tubes['path_scores'].append(vid_tubes['path_scores'][k])
-    import pdb; pdb.set_trace()
     return final_tubes
 
 
@@ -186,7 +240,6 @@ def actionPathSmoother4oneVideo(video_paths,alpha,num_action,video_id):
                 M+=20.0
                 pred_path,time,D = dpEM_max(M,alpha[a])
                 Ts, Te, Scores, Label, DpPathScore = extract_action(pred_path,time,D,a)
-                import pdb; pdb.set_trace()
                 for k in range(len(Ts)):
                     final_tubes['starts'].append(action_paths[p]['start'])
                     final_tubes['ts'].append(Ts[k])
@@ -199,7 +252,6 @@ def actionPathSmoother4oneVideo(video_paths,alpha,num_action,video_id):
                     final_tubes['path_boxes'].append(action_paths[p]['boxes'])
                     final_tubes['path_scores'].append(action_paths[p]['scores'])
                     action_count+=1
-    import pdb; pdb.set_trace()
     return final_tubes
 
 def extract_action(p,q,D,action):
@@ -213,11 +265,11 @@ def extract_action(p,q,D,action):
     '''
     indexes = np.where(p==action)[0]
     if not (len(indexes) > 0):
-        ts = []
-        te = []
-        scores = []
-        label = []
-        total_score = []
+        ts = np.array([])
+        te = np.array([])
+        scores = np.array([])
+        label = np.array([])
+        total_score = np.array([])
     else:
         A = np.append(indexes, indexes[-1]+1)
         B = np.append(indexes[0]-2, indexes)
@@ -228,12 +280,11 @@ def extract_action(p,q,D,action):
         else:
             te = len(indexes)-1
         ts = indexes[ts]
-        te = indexes[te]
+        te = np.array([indexes[te]])
         scores = (D[action,q[te]] - D[action,q[ts]])/(te-ts)
         label = np.ones((len(ts), 1))*action
         total_score = np.ones((len(ts),1))*D[p[-1],q[-1]]/len(p)
-
-    return ts,te,scores,label,total_score
+    return ts.flatten(),te.flatten(),scores.flatten(),label.flatten(),total_score.flatten()
 
 def dpEM_max(M, alpha):
     r,c = M.shape
